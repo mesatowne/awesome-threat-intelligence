@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iran Conflict Map – Reported Strike Locations</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #1a1a2e; }
+  #map { width: 100%; height: 100vh; }
+
+  .legend {
+    background: rgba(26,26,46,0.92);
+    color: #e0e0e0;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.7;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    max-width: 260px;
+  }
+  .legend h4 {
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #fff;
+    border-bottom: 1px solid #444;
+    padding-bottom: 6px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
+  .legend-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.3);
+  }
+  .legend .note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #999;
+    border-top: 1px solid #444;
+    padding-top: 8px;
+  }
+
+  .custom-popup .leaflet-popup-content-wrapper {
+    background: rgba(26,26,46,0.95);
+    color: #e0e0e0;
+    border-radius: 8px;
+    border: 1px solid #444;
+  }
+  .custom-popup .leaflet-popup-tip { background: rgba(26,26,46,0.95); }
+  .custom-popup .leaflet-popup-content { margin: 10px 14px; font-size: 13px; line-height: 1.5; }
+  .custom-popup .leaflet-popup-content strong { color: #fff; }
+  .popup-confirmed { color: #ff4444; font-weight: 600; }
+  .popup-emerging { color: #ffd700; font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Map setup ──────────────────────────────────────────────
+const map = L.map('map', {
+  center: [33.0, 52.5],
+  zoom: 6,
+  zoomControl: true,
+  attributionControl: true
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 18
+}).addTo(map);
+
+// ── Marker factory ─────────────────────────────────────────
+function makeIcon(color, size) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px; height:${size}px;
+      background:${color};
+      border: 2px solid rgba(255,255,255,0.5);
+      border-radius:50%;
+      box-shadow: 0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}55;
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+    popupAnchor: [0, -size/2]
+  });
+}
+
+const iconConfirmed     = makeIcon('#ff3333', 18);
+const iconConfirmedLg   = makeIcon('#ff3333', 24);
+const iconEmerging      = makeIcon('#ffd700', 16);
+
+// ── Confirmed strike locations (RED) ───────────────────────
+const confirmed = [
+  {
+    lat: 35.6892, lng: 51.3890, name: 'Tehran – Downtown / Central',
+    detail: 'University St, Jomhouri St area & vicinity of Supreme Leader offices',
+    size: 'lg'
+  },
+  {
+    lat: 35.7200, lng: 51.4100, name: 'Tehran – Northern Districts',
+    detail: 'Northern Tehran reported strikes',
+    size: 'lg'
+  },
+  {
+    lat: 35.7050, lng: 51.4600, name: 'Tehran – Eastern Districts',
+    detail: 'Eastern Tehran reported activity',
+    size: 'lg'
+  },
+  {
+    lat: 32.6546, lng: 51.6680, name: 'Isfahan',
+    detail: 'Multiple reports of strikes in Isfahan city area'
+  },
+  {
+    lat: 34.6416, lng: 50.8746, name: 'Qom',
+    detail: 'Confirmed strikes reported in Qom'
+  },
+  {
+    lat: 35.8400, lng: 50.9391, name: 'Karaj',
+    detail: 'Confirmed strikes reported in Karaj'
+  },
+  {
+    lat: 34.3142, lng: 47.0650, name: 'Kermanshah',
+    detail: 'Confirmed strikes reported in Kermanshah'
+  }
+];
+
+// ── Possibly hit / emerging reports (YELLOW) ───────────────
+const emerging = [
+  {
+    lat: 33.4500, lng: 48.3500, name: 'Lorestan Province',
+    detail: 'Emerging reports of activity in Lorestan province'
+  },
+  {
+    lat: 38.0962, lng: 46.2738, name: 'Tabriz',
+    detail: 'Unconfirmed reports of strikes near Tabriz'
+  },
+  {
+    lat: 33.7225, lng: 51.7270, name: 'Natanz Nuclear Site',
+    detail: 'Emerging reports near Natanz uranium enrichment facility'
+  }
+];
+
+// ── Place markers ──────────────────────────────────────────
+const confirmedGroup = L.layerGroup().addTo(map);
+const emergingGroup  = L.layerGroup().addTo(map);
+
+confirmed.forEach(p => {
+  const icon = p.size === 'lg' ? iconConfirmedLg : iconConfirmed;
+  L.marker([p.lat, p.lng], { icon })
+    .bindPopup(
+      `<strong>${p.name}</strong><br>
+       <span class="popup-confirmed">CONFIRMED</span><br>
+       ${p.detail}`,
+      { className: 'custom-popup', maxWidth: 260 }
+    )
+    .addTo(confirmedGroup);
+});
+
+emerging.forEach(p => {
+  L.marker([p.lat, p.lng], { icon: iconEmerging })
+    .bindPopup(
+      `<strong>${p.name}</strong><br>
+       <span class="popup-emerging">EMERGING / UNCONFIRMED</span><br>
+       ${p.detail}`,
+      { className: 'custom-popup', maxWidth: 260 }
+    )
+    .addTo(emergingGroup);
+});
+
+// ── Legend ──────────────────────────────────────────────────
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = function () {
+  const div = L.DomUtil.create('div', 'legend');
+  div.innerHTML = `
+    <h4>Iran Conflict Map</h4>
+    <div class="legend-item">
+      <span class="legend-dot" style="background:#ff3333;"></span>
+      Confirmed strikes
+    </div>
+    <div class="legend-item">
+      <span class="legend-dot" style="background:#ffd700;"></span>
+      Possibly hit / emerging reports
+    </div>
+    <p class="note">
+      Based on open-source reports.<br>
+      Locations are approximate.<br>
+      Map tiles &copy; OpenStreetMap
+    </p>`;
+  return div;
+};
+legend.addTo(map);
+
+// ── Layer toggle ───────────────────────────────────────────
+L.control.layers(null, {
+  'Confirmed (red)': confirmedGroup,
+  'Emerging (yellow)': emergingGroup
+}, { collapsed: false, position: 'topright' }).addTo(map);
+</script>
+</body>
+</html>
